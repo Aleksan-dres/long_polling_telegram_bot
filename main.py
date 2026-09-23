@@ -1,11 +1,9 @@
 import os
-import requests  
-import time 
-import telegram  
+import requests
+import time
+import telegram
 from dotenv import load_dotenv
 
-
-  
 
 def send_notification(bot, attempt, chat_id):
     """Отправляет уведомление о проверке работы"""
@@ -18,52 +16,51 @@ def send_notification(bot, attempt, chat_id):
     else:
         message = f' Работа "{lesson_title}" проверена!\n\nПреподавателю всё понравилось! Можно приступать к следующему уроку.\n{lesson_url}'
 
-    bot.send_message(chat_id=chat_id, text=message) 
+    bot.send_message(chat_id=chat_id, text=message)
 
 
-def main(): 
-    load_dotenv()   
+def main():
+    load_dotenv()
 
-    chat_id = os.getenv('CHAT_ID')
-    dvmn_api_token = os.getenv('DVMN_API_TOKEN')
-    tg_bot_token = os.getenv('TG_BOT_TOKEN')
-     
+    chat_id = os.environ['CHAT_ID']
+    dvmn_api_token = os.environ['DVMN_API_TOKEN']
+    tg_bot_token = os.environ['TG_BOT_TOKEN']
 
     if not all([dvmn_api_token, tg_bot_token, chat_id]):
         print("Ошибка: не все необходимые переменные окружения установлены")
-        return 
-    
+        return
+
     bot = telegram.Bot(token=tg_bot_token)
 
-    url = 'https://dvmn.org/api/long_polling/' 
-    headers = { "Authorization": f"Token {dvmn_api_token}"} 
+    url = 'https://dvmn.org/api/long_polling/'
+    headers = {"Authorization": f"Token {dvmn_api_token}"}
 
     timestamp = None
-    while True: 
-        try: 
+    while True:
+        try:
             params = {}
             if timestamp:
                 params["timestamp"] = timestamp
 
-            response = requests.get(url, headers=headers, params=params, timeout=60) 
-            response.raise_for_status() 
-            answer = response.json() 
+            response = requests.get(
+                url, headers=headers, params=params, timeout=60)
+            response.raise_for_status()
+            answer = response.json()
 
             if answer["status"] == "found":
-                    for attempt in answer["new_attempts"]:
-                        send_notification(bot, attempt, chat_id)
-                    timestamp = answer["last_attempt_timestamp"]
+                for attempt in answer["new_attempts"]:
+                    send_notification(bot, attempt, chat_id)
+                timestamp = answer["last_attempt_timestamp"]
 
             elif answer["status"] == "timeout":
                 timestamp = answer["timestamp_to_request"]
-          
-         
-        except requests.exceptions.ReadTimeout:  
-            continue 
+
+        except requests.exceptions.ReadTimeout:
+            continue
         except requests.exceptions.ConnectionError:
             print("Проблемы с соединением. Ждем 5 секунд...")
             time.sleep(5)
-            continue 
+            continue
 
 
 if __name__ == "__main__":
